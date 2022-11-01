@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using TicLib;
 
 namespace TicCmd
@@ -14,55 +13,38 @@ namespace TicCmd
             PrintHelp();
 
             var tic = new Tic();
-            tic.Open();
-
-            if (!tic.IsConnected)
+            bool success = tic.StartInDefaultMode(ProductId.T834);
+            if (!success)
                 return;
-            
+
             Console.WriteLine($@"Connected to {tic.ProductId}");
-
-            tic.Reinitialize();
-            tic.Energize();
-            tic.ClearDriverError();
-
-            tic.SetMaxAccel(100000);
-            tic.SetMaxDecel(100000);
-            tic.SetMaxSpeed(1000000);
-            tic.SetStartingSpeed(1000000);
-            tic.ExitSafeStart();
-            tic.WaitForDeviceReady();
-
-            tic.SetTargetPosition(100);
-            Thread.Sleep(1000);
-
-            tic.SetTargetPosition(0);
-            Thread.Sleep(1000);
-
 
             while (true)
             {
-                var param = Console
+                Console.Write(">");
+
+                var command = Console
                     .ReadLine()?
                     .Trim()
                     .ToLowerInvariant()
-                    .Split(new[]{' '}, StringSplitOptions.RemoveEmptyEntries);
+                    .Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
 
-                switch (param?.FirstOrDefault())
+                switch (command?.FirstOrDefault())
                 {
                     case "quit":
                         tic.Close();
                         return;
-                
+
                     case "at":
-                        tic.HaltAndSetPosition(GetInt(param, 1));
+                        tic.HaltAndSetPosition(GetInt(command, 1));
                         break;
 
                     case "abs":
-                        tic.SetTargetPosition(GetInt(param, 1));
+                        tic.SetTargetPosition(GetInt(command, 1));
                         break;
-                    
+
                     case "rel":
-                        tic.SetTargetPosition(GetInt(param, 1) + tic.Vars.CurrentPosition);
+                        tic.SetTargetPosition(GetInt(command, 1) + tic.Vars.CurrentPosition);
                         break;
 
                     case "pos":
@@ -81,17 +63,17 @@ namespace TicCmd
                     case "?":
                         PrintHelp();
                         break;
-                }                
+                }
             }
         }
 
-        private static int GetInt(IReadOnlyList<string> param, int i) => param.Count > i && int.TryParse(param[i], out var  v) ? v : 0;
+        private static int GetInt(IReadOnlyList<string> param, int i) => param.Count > i && int.TryParse(param[i], out var v) ? v : 0;
 
         private static void PrintHelp()
         {
             const string readMePath = "README.TXT";
 
-            if (File.Exists(readMePath)) 
+            if (File.Exists(readMePath))
                 Console.WriteLine(File.ReadAllText(readMePath));
         }
     }

@@ -313,7 +313,7 @@ namespace TicLib
             Serial = 0;
         }
 
-        public bool Open(ProductId prodId = ProductId.T834, string serial = "")
+        public bool Open(ProductId prodId, string serial = "")
         {           
             InitDefaults();
             try
@@ -533,6 +533,19 @@ namespace TicLib
             return Transfer(request: TicCmdStartBootloader);
         }
 
+        public bool SetTargetPositionAndWait(int position)
+        {
+            bool result = Transfer32bit(request: TicCmdSetTargetPosition, data: position);
+         
+            var timeout = new Timeout(30);
+            while (Vars.TargetPosition != position || !timeout.IsDone)
+            {
+                Thread.Sleep(20);
+            }
+         
+            return result && Vars.TargetPosition != position;
+        }
+
         public bool SetTargetPosition(int position)
         {
             return Transfer32bit(request: TicCmdSetTargetPosition, data: position);
@@ -710,6 +723,30 @@ namespace TicLib
                 .GetType()
                 .GetProperties()
                 .Select(prop => $"{prop.Name} = {prop.GetValue(obj, null)}"));
+        }
+
+        public bool StartInDefaultMode(ProductId productId)
+        {
+            Open(productId);
+
+            if (!IsConnected)
+                return false;
+
+            Reinitialize();
+            Energize();
+            ClearDriverError();
+
+            SetMaxAccel(100000);
+            SetMaxDecel(100000);
+            SetMaxSpeed(1000000);
+            SetStartingSpeed(1000000);
+            ExitSafeStart();
+            WaitForDeviceReady();
+
+            SetTargetPositionAndWait(100);
+            SetTargetPositionAndWait(0);
+
+            return true;
         }
 
 
@@ -898,5 +935,19 @@ namespace TicLib
         public Variables Vars { get; set; }
         public StatusVariables StatusVars { get; set; }
         public ProductId ProductId { get; private set; }
+    }
+
+    public struct Timeout
+    {
+        private readonly int time;
+        private readonly DateTime start;
+
+        public Timeout(int time)
+        {
+            this.time = time;
+            this.start = DateTime.Now;
+        }
+
+        public bool IsDone => (DateTime.Now - start).TotalSeconds > time;
     }
 }
